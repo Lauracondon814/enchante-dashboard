@@ -321,6 +321,7 @@ button{cursor:pointer;font-family:inherit}input,select,textarea{font-family:inhe
           <button class="tab-btn" onclick="switchTab('adm','audit',this)">Audit Log</button>
           <button class="tab-btn" onclick="switchTab('adm','export',this)">Export</button>
           <button class="tab-btn" onclick="switchTab('adm','settings',this)">&#9881;&#65039; GitHub</button>
+          <button class="tab-btn" onclick="switchTab('adm','policy',this)">&#128204; Policy</button>
         </div>
         <div class="tab-pane act" id="tp-adm-members">
           <div class="sec-hd"><div class="sec-title">Team Roster</div><button class="btn btn-primary btn-sm" onclick="openAddMember()">&#43; Add Member</button></div>
@@ -372,6 +373,33 @@ button{cursor:pointer;font-family:inherit}input,select,textarea{font-family:inhe
           </div>
         </div>
       </div>
+
+        <div class="tab-pane" id="tp-adm-policy">
+          <div class="two-col" style="max-width:700px">
+            <div class="card">
+              <div class="card-hd"><div><div class="card-title">&#128204; Policy Settings</div><div class="card-sub">Changes apply immediately to all validations</div></div></div>
+              <div class="card-bd">
+                <div class="fg"><label class="flbl">Booking window (months)</label><input type="number" class="finput" id="pol-booking" min="1" max="24"><div class="fhint">Requests further ahead require exceptional justification</div></div>
+                <div class="fg"><label class="flbl">Max liaisons off &#8212; Ireland-only BHs</label><input type="number" class="finput" id="pol-ireland" min="1" max="20"><div class="fhint">e.g. St. Patrick&#39;s Day, May Bank Holiday</div></div>
+                <div class="fg"><label class="flbl">Max liaisons off &#8212; Pan-European BHs</label><input type="number" class="finput" id="pol-european" min="1" max="20"><div class="fhint">e.g. Christmas Day, Easter Monday, New Year&#39;s</div></div>
+                <div class="fg"><label class="flbl">Max Irish BH periods per person per year</label><input type="number" class="finput" id="pol-bhperiods" min="1" max="10"></div>
+                <div class="fg"><label class="flbl">Min speakers per language (daily)</label><input type="number" class="finput" id="pol-minspeakers" min="1" max="5"></div>
+                <div class="fg"><label class="flbl">Allow consecutive Irish BH periods?</label>
+                  <select class="fsel" id="pol-consec"><option value="false">No &#8212; block consecutive (recommended)</option><option value="true">Yes &#8212; allow consecutive</option></select>
+                </div>
+                <div style="display:flex;gap:10px;margin-top:4px">
+                  <button class="btn btn-primary" onclick="savePolicy()">&#128190; Save Policy</button>
+                  <button class="btn btn-outline" onclick="resetPolicy()">Reset to Defaults</button>
+                </div>
+                <div id="pol-status" style="margin-top:12px"></div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-hd"><div class="card-title">&#128161; Current Policy</div></div>
+              <div class="card-bd" id="pol-summary" style="font-size:13px;color:var(--t2);line-height:2"></div>
+            </div>
+          </div>
+        </div>
 
     </div>
   </div>
@@ -494,13 +522,14 @@ let auditLog=[
 // GITHUB CONFIG (loaded from localStorage)
 const GH={owner:'',repo:'',token:'',file:'leave-data.json'};
 let _ghSHA=null;
+let POLICY={bookingWindowMonths:6,maxOffIreland:4,maxOffEuropean:5,maxBHPeriodsPerYear:1,allowConsecutiveBH:false,minSpeakersPerLang:1};
 // APP STATE
 let role='member',userId='PM004';
 let calY=new Date().getFullYear(),calM=new Date().getMonth();
 let activeRejId=null,activeOvId=null;
 
 // UTILS
-function ds(d){return d.toISOString().split('T')[0];}
+function ds(d){const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');return y+'-'+m+'-'+day;}
 function pd(s){const[y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d,12,0,0);}
 function fmtDate(s){if(!s)return'';return pd(s).toLocaleDateString('en-IE',{weekday:'short',day:'numeric',month:'short',year:'numeric'});}
 function fmtShort(s){if(!s)return'';return pd(s).toLocaleDateString('en-IE',{day:'numeric',month:'short'});}
@@ -521,15 +550,15 @@ function reqCoversBH(s,e){const rd=new Set(datesInRange(s,e));const covered=[];f
 function validate(mid,start,end,exId){
   const errs=[],warns=[],infos=[];
   if(!start||!end||start>end)return{errs:[{c:'D',m:'Please select a valid date range.'}],warns:[],infos:[],ok:false,isExc:false};
-  const today=new Date(),sixM=new Date(today);sixM.setMonth(sixM.getMonth()+6);
+  const today=new Date(),sixM=new Date(today);sixM.setMonth(sixM.getMonth()+POLICY.bookingWindowMonths);
   const isExc=pd(start)>sixM;
   if(isExc)infos.push({c:'EXC',m:'This request is more than 6 months ahead. Justification required.'});
   const rd=datesInRange(start,end),seen=new Set();
   for(const d of rd){
     const bh=getBH(d);
-    if(bh&&!seen.has(d)){seen.add(d);const cnt=approvedOn(d,exId).length;
-      if(cnt>=bh.max)errs.push({c:'BH'+d,m:'Capacity exceeded for '+bh.name+' ('+fmtShort(d)+'): '+cnt+'/'+bh.max+' approved.'});
-      else if(cnt===bh.max-1)warns.push({c:'BHN'+d,m:'Last slot for '+bh.name+' ('+fmtShort(d)+'): '+cnt+'/'+bh.max+'.'});}
+    if(bh&&!seen.has(d)){seen.add(d);const bhMax=bh.type==='ireland'?POLICY.maxOffIreland:POLICY.maxOffEuropean;const cnt=approvedOn(d,exId).length;
+      if(cnt>=bhMax)errs.push({c:'BH'+d,m:'Capacity exceeded for '+bh.name+' ('+fmtShort(d)+'): '+cnt+'/'+bhMax+' approved.'});
+      else if(cnt===bhMax-1)warns.push({c:'BHN'+d,m:'Last slot for '+bh.name+' ('+fmtShort(d)+'): '+cnt+'/'+bhMax+'.'});}
   }
   const mbr=getMember(mid),lseen={};
   for(const d of rd){
@@ -540,7 +569,7 @@ function validate(mid,start,end,exId){
       const total=teamMembers.filter(m=>m.languages.includes(lang)).length;
       const onLv=approvedOn(d,exId).filter(r=>getMember(r.memberId)?.languages.includes(lang)).length;
       const avail=total-onLv-(hasL?1:0);
-      if(avail<=0&&hasL){errs.push({c:'L'+lang,m:LN[lang]+' coverage gap on '+fmtShort(d)+': no liaisons available.'});lseen[lang]=true;}
+      if(avail<POLICY.minSpeakersPerLang&&hasL){errs.push({c:'L'+lang,m:LN[lang]+' coverage gap on '+fmtShort(d)+': no liaisons available.'});lseen[lang]=true;}
       else if(avail===1&&hasL){warns.push({c:'LW'+lang,m:LN[lang]+' at minimum (1) on '+fmtShort(d)+'.'});lseen[lang]=true;}
     }
   }
@@ -548,12 +577,12 @@ function validate(mid,start,end,exId){
   if(covBHs.length){
     const yr=pd(start).getFullYear();
     const existing=memberApproved(mid,exId).filter(r=>reqCoversBH(r.start,r.end).length>0&&pd(r.start).getFullYear()===yr);
-    if(existing.length>=1)errs.push({c:'BHY',m:'Irish BH period limit: already used 1 period in '+yr+'.'});
+    if(existing.length>=POLICY.maxBHPeriodsPerYear)errs.push({c:'BHY',m:'Irish BH period limit: already used 1 period in '+yr+'.'});
     const allBH=bankHolidays.map(h=>h.date).sort();
     for(const bhDate of covBHs){
       const idx=allBH.indexOf(bhDate);
       const chk=bh=>{if(!bh)return false;return memberApproved(mid,exId).some(r=>reqCoversBH(r.start,r.end).includes(bh));};
-      if(chk(allBH[idx-1])||chk(allBH[idx+1]))errs.push({c:'BHCON',m:'Consecutive Irish BH periods not allowed.'});
+      if(!POLICY.allowConsecutiveBH&&(chk(allBH[idx-1])||chk(allBH[idx+1])))errs.push({c:'BHCON',m:'Consecutive Irish BH periods not allowed.'});
     }
   }
   const dedup=a=>{const s=new Set();return a.filter(x=>{if(s.has(x.c))return false;s.add(x.c);return true;});};
@@ -941,7 +970,8 @@ function switchTab(group,tab,btn){
   view.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('act'));
   if(btn)btn.classList.add('act');
   const p=document.getElementById('tp-'+group+'-'+tab);if(p)p.classList.add('act');
-  if(group==='adm'){if(tab==='members')renderAdminMembers();else if(tab==='holidays')renderAdminHolidays();else if(tab==='audit')renderAdminAudit();else if(tab==='export')populateExpMember();else if(tab==='settings')fillCfgForm();}
+  if(group==='adm'){if(tab==='members')renderAdminMembers();else if(tab==='holidays')renderAdminHolidays();else if(tab==='audit')renderAdminAudit();else if(tab==='export')populateExpMember();else if(tab==='settings')fillCfgForm();
+    else if(tab==='policy')fillPolicyForm();}
 }
 
 function populateCalFilter(){
@@ -1001,9 +1031,50 @@ function showToast(msg,type){
   ct.appendChild(t);setTimeout(()=>{t.style.opacity='0';t.style.transition='opacity .3s';setTimeout(()=>t.remove(),300);},3500);
 }
 
+
+function loadPolicyFromStorage(){try{const s=localStorage.getItem('enchante_policy');if(s)Object.assign(POLICY,JSON.parse(s));}catch(e){}}
+function fillPolicyForm(){
+  const map={'pol-booking':'bookingWindowMonths','pol-ireland':'maxOffIreland','pol-european':'maxOffEuropean','pol-bhperiods':'maxBHPeriodsPerYear','pol-minspeakers':'minSpeakersPerLang'};
+  Object.entries(map).forEach(([id,k])=>{const el=document.getElementById(id);if(el)el.value=POLICY[k];});
+  const c=document.getElementById('pol-consec');if(c)c.value=String(POLICY.allowConsecutiveBH);
+  renderPolSummary();
+}
+function savePolicy(){
+  const get=id=>document.getElementById(id);
+  Object.assign(POLICY,{
+    bookingWindowMonths:parseInt(get('pol-booking').value)||6,
+    maxOffIreland:parseInt(get('pol-ireland').value)||4,
+    maxOffEuropean:parseInt(get('pol-european').value)||5,
+    maxBHPeriodsPerYear:parseInt(get('pol-bhperiods').value)||1,
+    minSpeakersPerLang:parseInt(get('pol-minspeakers').value)||1,
+    allowConsecutiveBH:get('pol-consec').value==='true'
+  });
+  localStorage.setItem('enchante_policy',JSON.stringify(POLICY));
+  syncSave();renderPolSummary();
+  const el=document.getElementById('pol-status');
+  if(el){el.innerHTML='<span class="badge badge-green">&#10003; Policy saved</span>';setTimeout(()=>{el.innerHTML='';},3000);}
+  showToast('Policy settings saved!','success');
+}
+function resetPolicy(){
+  Object.assign(POLICY,{bookingWindowMonths:6,maxOffIreland:4,maxOffEuropean:5,maxBHPeriodsPerYear:1,allowConsecutiveBH:false,minSpeakersPerLang:1});
+  localStorage.setItem('enchante_policy',JSON.stringify(POLICY));
+  fillPolicyForm();showToast('Policy reset to defaults.','warning');
+}
+function renderPolSummary(){
+  const el=document.getElementById('pol-summary');if(!el)return;
+  el.innerHTML=
+    '<p>&#8226; Booking window: <strong>'+POLICY.bookingWindowMonths+' months</strong></p>'+
+    '<p>&#8226; Max off Ireland-only BHs: <strong>'+POLICY.maxOffIreland+'</strong></p>'+
+    '<p>&#8226; Max off Pan-European BHs: <strong>'+POLICY.maxOffEuropean+'</strong></p>'+
+    '<p>&#8226; Max BH periods/year: <strong>'+POLICY.maxBHPeriodsPerYear+'</strong></p>'+
+    '<p>&#8226; Consecutive BH periods: <strong>'+(POLICY.allowConsecutiveBH?'Allowed':'Not allowed')+'</strong></p>'+
+    '<p>&#8226; Min speakers/language: <strong>'+POLICY.minSpeakersPerLang+'</strong></p>';
+}
+
 // INIT
 document.addEventListener('DOMContentLoaded',function(){
   loadCfgFromStorage();
+  loadPolicyFromStorage();
   populateLoginSelect();
 });
 </script>
