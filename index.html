@@ -217,8 +217,7 @@ button{cursor:pointer;font-family:inherit}input,select,textarea{font-family:inhe
   <div class="llbl">Sign in as</div>
   <div class="rbtns">
     <button class="rbtn sel" onclick="selRole('member',this)"><div class="rico ri-m">&#128100;</div><div><div class="rname">Team Member</div><div class="rdesc">Submit &amp; track leave requests</div></div></button>
-    <button class="rbtn" onclick="selRole('manager',this)"><div class="rico ri-mg">&#128084;</div><div><div class="rname">Manager</div><div class="rdesc">Approve requests &amp; monitor coverage</div></div></button>
-    <button class="rbtn" onclick="selRole('admin',this)"><div class="rico ri-a">&#9881;&#65039;</div><div><div class="rname">Administrator</div><div class="rdesc">Configure team &amp; policy settings</div></div></button>
+<button class="rbtn" onclick="selRole('admin',this)"><div class="rico ri-a">&#9881;&#65039;</div><div><div class="rname">Administrator</div><div class="rdesc">Approve requests, manage team &amp; settings</div></div></button>
   </div>
   <div id="member-wrap"><select class="lsel" id="login-member"></select></div>
   <button class="lbtn" onclick="doLogin()">Continue &rarr;</button>
@@ -328,6 +327,18 @@ button{cursor:pointer;font-family:inherit}input,select,textarea{font-family:inhe
           <div class="card" style="overflow:auto"><table class="mtbl"><thead><tr><th>Name</th><th>ID</th><th>Role</th><th>Languages</th><th>Entitlement</th><th>Used</th><th>Remaining</th><th></th></tr></thead><tbody id="members-tbody"></tbody></table></div>
         </div>
         <div class="tab-pane" id="tp-adm-holidays">
+          <div class="card" style="margin-bottom:18px">
+            <div class="card-hd"><div><div class="card-title">&#43; Add Bank Holiday</div><div class="card-sub">Add a new holiday date for any year</div></div></div>
+            <div class="card-bd">
+              <div style="display:grid;grid-template-columns:1fr 2fr 1fr 1fr auto;gap:10px;align-items:end;flex-wrap:wrap">
+                <div><label class="flbl">Date</label><input type="date" class="finput" id="bh-new-date"></div>
+                <div><label class="flbl">Holiday Name</label><input type="text" class="finput" id="bh-new-name" placeholder="e.g. May Bank Holiday 2028"></div>
+                <div><label class="flbl">Type</label><select class="fsel" id="bh-new-type"><option value="ireland">&#127470;&#127466; Ireland Only (max 4)</option><option value="european">&#127758; Pan-European (max 5)</option></select></div>
+                <div><label class="flbl">Max Off</label><input type="number" class="finput" id="bh-new-max" value="4" min="1" max="20"></div>
+                <div style="padding-bottom:1px"><button class="btn btn-primary" onclick="addBankHoliday()" style="height:40px">&#43; Add</button></div>
+              </div>
+            </div>
+          </div>
           <div class="card" style="overflow:auto"><div id="bh-admin"></div></div>
         </div>
         <div class="tab-pane" id="tp-adm-audit">
@@ -508,6 +519,18 @@ let bankHolidays=[
   {date:'2026-06-01',name:'June Bank Holiday 2026',type:'ireland',max:4},
   {date:'2026-08-03',name:'August Bank Holiday 2026',type:'ireland',max:4},
   {date:'2026-10-26',name:'October Bank Holiday 2026',type:'ireland',max:4},
+  // 2027 Pan-European (max 5)
+  {date:'2027-01-01',name:"New Year's Day 2027",type:'european',max:5},
+  {date:'2027-03-29',name:'Easter Monday 2027',type:'european',max:5},
+  {date:'2027-12-25',name:'Christmas Day 2027',type:'european',max:5},
+  {date:'2027-12-27',name:"St. Stephen's Day 2027 (substitute)",type:'european',max:5},
+  // 2027 Ireland-only (max 4)
+  {date:'2027-02-01',name:"St. Brigid's Day 2027",type:'ireland',max:4},
+  {date:'2027-03-17',name:"St. Patrick's Day 2027",type:'ireland',max:4},
+  {date:'2027-05-03',name:'May Bank Holiday 2027',type:'ireland',max:4},
+  {date:'2027-06-07',name:'June Bank Holiday 2027',type:'ireland',max:4},
+  {date:'2027-08-02',name:'August Bank Holiday 2027',type:'ireland',max:4},
+  {date:'2027-10-25',name:'October Bank Holiday 2027',type:'ireland',max:4},
 ];
 let leaveRequests=[
   {id:'LR001',memberId:'PM004',start:'2025-07-07',end:'2025-07-11',status:'approved',type:'annual',submittedDate:'2025-01-15',notes:'',isExceptional:false,managerNote:''},
@@ -928,7 +951,27 @@ function doAddMember(){
 }
 function renderAdminHolidays(){
   const el=document.getElementById('bh-admin');if(!el)return;
-  el.innerHTML=`<table class="mtbl"><thead><tr><th>Date</th><th>Holiday</th><th>Type</th><th>Max</th><th>Booked</th></tr></thead><tbody>${bankHolidays.sort((a,b)=>a.date.localeCompare(b.date)).map(h=>{const cnt=approvedOn(h.date).length,pct=cnt/h.max,bc=pct>=1?'badge-red':pct>=.75?'badge-amber':'badge-green';return`<tr><td>${fmtDate(h.date)}</td><td>${h.name}</td><td>${h.type==='ireland'?'&#127470;&#127466; Ireland Only':'&#127758; Pan-European'}</td><td>${h.max}</td><td><span class="badge ${bc}">${cnt}/${h.max}</span></td></tr>`;}).join('')}</tbody></table>`;
+  el.innerHTML=`<table class="mtbl"><thead><tr><th>Date</th><th>Holiday</th><th>Type</th><th>Max</th><th>Booked</th><th></th></tr></thead><tbody>${bankHolidays.sort((a,b)=>a.date.localeCompare(b.date)).map((h,i)=>{const cnt=approvedOn(h.date).length,pct=cnt/h.max,bc=pct>=1?'badge-red':pct>=.75?'badge-amber':'badge-green';return`<tr><td>${fmtDate(h.date)}</td><td>${h.name}</td><td>${h.type==='ireland'?'&#127470;&#127466; Ireland Only':'&#127758; Pan-European'}</td><td>${h.max}</td><td><span class="badge ${bc}">${cnt}/${h.max}</span></td><td><button class="btn-ghost btn-sm" onclick="removeBankHoliday('${h.date}')" title="Remove">&#128465;</button></td></tr>`;}).join('')}</tbody></table>`;
+}
+function addBankHoliday(){
+  const date=document.getElementById('bh-new-date').value;
+  const name=document.getElementById('bh-new-name').value.trim();
+  const type=document.getElementById('bh-new-type').value;
+  const max=parseInt(document.getElementById('bh-new-max').value)||4;
+  if(!date||!name){showToast('Please fill in the date and name.','error');return;}
+  if(bankHolidays.find(h=>h.date===date)){showToast('A bank holiday already exists for that date.','error');return;}
+  bankHolidays.push({date,name,type,max});
+  syncSave();renderAdminHolidays();renderDashboard();
+  document.getElementById('bh-new-date').value='';
+  document.getElementById('bh-new-name').value='';
+  showToast(name+' added.','success');
+}
+function removeBankHoliday(date){
+  const h=bankHolidays.find(x=>x.date===date);
+  if(!h||!confirm('Remove '+h.name+'?'))return;
+  bankHolidays=bankHolidays.filter(x=>x.date!==date);
+  syncSave();renderAdminHolidays();renderDashboard();
+  showToast(h.name+' removed.','warning');
 }
 function renderAdminAudit(){
   const el=document.getElementById('audit-full');if(!el)return;
@@ -949,7 +992,7 @@ function exportCap(){
 }
 
 // NAVIGATION
-const NAV={member:[{id:'dashboard',lbl:'Dashboard',icon:'&#127968;'},{id:'calendar',lbl:'Team Calendar',icon:'&#128197;'},{id:'myleave',lbl:'My Leave',icon:'&#127958;'}],manager:[{id:'dashboard',lbl:'Dashboard',icon:'&#127968;'},{id:'calendar',lbl:'Team Calendar',icon:'&#128197;'},{id:'approvals',lbl:'Approvals',icon:'&#10003;',badge:true},{id:'coverage',lbl:'Team Coverage',icon:'&#128483;'},{id:'admin',lbl:'Admin Panel',icon:'&#9881;&#65039;'}],admin:[{id:'dashboard',lbl:'Dashboard',icon:'&#127968;'},{id:'calendar',lbl:'Team Calendar',icon:'&#128197;'},{id:'approvals',lbl:'Approvals',icon:'&#10003;',badge:true},{id:'coverage',lbl:'Team Coverage',icon:'&#128483;'},{id:'admin',lbl:'Admin Panel',icon:'&#9881;&#65039;'}]};
+const NAV={member:[{id:'dashboard',lbl:'Dashboard',icon:'&#127968;'},{id:'calendar',lbl:'Team Calendar',icon:'&#128197;'},{id:'myleave',lbl:'My Leave',icon:'&#127958;'}],admin:[{id:'dashboard',lbl:'Dashboard',icon:'&#127968;'},{id:'calendar',lbl:'Team Calendar',icon:'&#128197;'},{id:'approvals',lbl:'Approvals',icon:'&#10003;',badge:true},{id:'coverage',lbl:'Team Coverage',icon:'&#128483;'},{id:'admin',lbl:'Admin Panel',icon:'&#9881;&#65039;'}]};
 const TITLES={dashboard:['Dashboard','Team overview & language coverage'],calendar:['Team Calendar','View all approved and pending leave'],myleave:['My Leave','Submit and track your leave requests'],approvals:['Approval Queue','Review and action pending requests'],coverage:['Team Coverage','Language coverage — next 30 working days'],admin:['Admin Panel','Manage team, holidays & configuration']};
 
 function buildNav(){
@@ -1007,14 +1050,14 @@ function populateLoginSelect(){
 function doLogin(){
   role=selRole2;
   const lm=document.getElementById('login-member');
-  userId=role==='member'?(lm?lm.value:'PM004'):role==='manager'?'MGR_SYS':'ADM_SYS';
+  userId=role==='member'?(lm?lm.value:'PM004'):'ADM_SYS';
   const m=getMember(userId);
-  const name=m?m.name:role==='manager'?'Team Manager':'Administrator';
-  const init=m?getInits(m.name):role==='manager'?'MG':'AD';
+  const name=m?m.name:'Administrator';
+  const init=m?getInits(m.name):'AD';
   const c=m?avCol(userId):{bg:'var(--blue-l)',fg:'var(--blue)'};
   const av=document.getElementById('sb-av');if(av){av.textContent=init;av.style.background=c.bg;av.style.color=c.fg;}
   const sn=document.getElementById('sb-name');if(sn)sn.textContent=name;
-  const rc=m?m.role:'management';
+  const rc=m?m.role:'admin';
   const sr=document.getElementById('sb-role');if(sr)sr.innerHTML=`<span class="role-badge rb-${rc}">${rc.charAt(0).toUpperCase()+rc.slice(1)}</span>`;
   document.getElementById('login').style.display='none';
   document.getElementById('app').classList.add('on');
