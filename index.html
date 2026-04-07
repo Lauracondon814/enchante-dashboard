@@ -377,11 +377,11 @@ button{cursor:pointer;font-family:inherit}input,select,textarea{font-family:inhe
             <div class="card">
               <div class="card-hd"><div><div class="card-title">&#128204; Policy Settings</div><div class="card-sub">Changes apply immediately to all validations</div></div></div>
               <div class="card-bd">
-                <div class="fg"><label class="flbl">Booking window (months)</label><input type="number" class="finput" id="pol-booking" min="1" max="24"><div class="fhint">Requests further ahead require exceptional justification</div></div>
-                <div class="fg"><label class="flbl">Max liaisons off &#8212; Ireland-only BHs</label><input type="number" class="finput" id="pol-ireland" min="1" max="20"><div class="fhint">e.g. St. Patrick&#39;s Day, May Bank Holiday</div></div>
-                <div class="fg"><label class="flbl">Max liaisons off &#8212; Pan-European BHs</label><input type="number" class="finput" id="pol-european" min="1" max="20"><div class="fhint">e.g. Christmas Day, Easter Monday, New Year&#39;s</div></div>
-                <div class="fg"><label class="flbl">Max Irish BH periods per person per year</label><input type="number" class="finput" id="pol-bhperiods" min="1" max="10"></div>
-                <div class="fg"><label class="flbl">Min speakers per language (daily)</label><input type="number" class="finput" id="pol-minspeakers" min="1" max="5"></div>
+                <div class="fg"><label class="flbl">Booking window (months)</label><input type="number" class="finput" id="pol-booking" min="1" max="24" value="6"><div class="fhint">Requests further ahead require exceptional justification</div></div>
+                <div class="fg"><label class="flbl">Max liaisons off &#8212; Ireland-only BHs</label><input type="number" class="finput" id="pol-ireland" min="1" max="20" value="4"><div class="fhint">e.g. St. Patrick&#39;s Day, May Bank Holiday</div></div>
+                <div class="fg"><label class="flbl">Max liaisons off &#8212; Pan-European BHs</label><input type="number" class="finput" id="pol-european" min="1" max="20" value="5"><div class="fhint">e.g. Christmas Day, Easter Monday, New Year&#39;s</div></div>
+                <div class="fg"><label class="flbl">Max Irish BH periods per person per year</label><input type="number" class="finput" id="pol-bhperiods" min="1" max="10" value="1"></div>
+                <div class="fg"><label class="flbl">Min speakers per language (daily)</label><input type="number" class="finput" id="pol-minspeakers" min="1" max="5" value="1"></div>
                 <div class="fg"><label class="flbl">Allow consecutive Irish BH periods?</label>
                   <select class="fsel" id="pol-consec"><option value="false">No &#8212; block consecutive (recommended)</option><option value="true">Yes &#8212; allow consecutive</option></select>
                 </div>
@@ -394,7 +394,14 @@ button{cursor:pointer;font-family:inherit}input,select,textarea{font-family:inhe
             </div>
             <div class="card">
               <div class="card-hd"><div class="card-title">&#128161; Current Policy</div></div>
-              <div class="card-bd" id="pol-summary" style="font-size:13px;color:var(--t2);line-height:2"></div>
+              <div class="card-bd" id="pol-summary" style="font-size:13px;color:var(--t2);line-height:2">
+                <p>&#8226; Booking window: <strong>6 months</strong></p>
+                <p>&#8226; Max off Ireland-only BHs: <strong>4</strong></p>
+                <p>&#8226; Max off Pan-European BHs: <strong>5</strong></p>
+                <p>&#8226; Max BH periods/year: <strong>1</strong></p>
+                <p>&#8226; Consecutive BH periods: <strong>Not allowed</strong></p>
+                <p>&#8226; Min speakers/language: <strong>1</strong></p>
+              </div>
             </div>
           </div>
         </div>
@@ -1076,6 +1083,7 @@ function renderPolSummary(){
 document.addEventListener('DOMContentLoaded',function(){
   loadCfgFromStorage();
   loadPolicyFromStorage();
+  renderPolSummary();
   populateLoginSelect();
 });
 </script>
